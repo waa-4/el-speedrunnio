@@ -77,27 +77,49 @@
     </section>
 
     <section id="editorScreen" class="screen">
-      <div class="card wideCard">
+      <div class="card editorCard">
         <h2>Level Creator</h2>
-        <p class="muted">V1 editor is simple: edit the text map, save it, then play it from Custom Levels.</p>
-
-        <div class="editorHelp">
-          <b>Map keys:</b>
-          <span># solid</span>
-          <span>. empty</span>
-          <span>P player</span>
-          <span>G goal</span>
-          <span>C chaser</span>
-          <span>X breakable</span>
-          <span>^ spike</span>
-        </div>
+        <p class="muted">Pick a tile, then click or drag on the grid to build. Very because.blocks-ish.</p>
 
         <label class="field">
           Level name
           <input id="editorName" value="Custom Chaos" />
         </label>
 
-        <textarea id="editorMap" spellcheck="false"></textarea>
+        <div class="editorLayout">
+          <aside class="palettePanel">
+            <h3>Assets</h3>
+            <div id="tilePalette" class="tilePalette"></div>
+
+            <h3>Tools</h3>
+            <div class="buttonStack">
+              <button id="resizeSmallBtn" class="smallBtn">Small Grid</button>
+              <button id="resizeBigBtn" class="smallBtn">Big Grid</button>
+              <button id="clearEditorBtn" class="smallBtn danger">Clear Grid</button>
+            </div>
+
+            <div class="editorHelp">
+              <b>Rules:</b>
+              <span>Only one player spawn</span>
+              <span>Only one goal</span>
+              <span>Drag to paint</span>
+            </div>
+          </aside>
+
+          <section class="gridPanel">
+            <div class="editorTopBar">
+              <span>Selected: <b id="selectedTileName">Solid</b></span>
+              <span id="gridSizeText">24 × 8</span>
+            </div>
+            <div id="visualEditorGrid" class="visualEditorGrid"></div>
+          </section>
+        </div>
+
+        <details class="advancedMapBox">
+          <summary>Advanced text map view</summary>
+          <textarea id="editorMap" spellcheck="false"></textarea>
+          <button id="syncTextToGridBtn" class="smallBtn">Load Text Into Grid</button>
+        </details>
 
         <div class="buttonRow">
           <button id="saveCustomBtn">Save Custom Level</button>
