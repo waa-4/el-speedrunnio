@@ -14,9 +14,9 @@ const CONFIG = {
   idleExplodeTime: 5,
 
   playerBase: {
-    speed: 900,
+    speed: 1200,
     maxRun: 310,
-    jump: 560,
+    jump: 860,
     dash: 520,
     swordDamage: 1
   },
@@ -35,12 +35,12 @@ const CONFIG = {
       par: 30,
       map: [
         "########################",
-        "#P........#...........G#",
+        "#P....................G#",
         "#.............C........#",
         "#......####............#",
-        "#................#.....#",
+        "#......................#",
         "#............####......#",
-        "#....#.................#",
+        "#......................#",
         "########################"
       ]
     },
@@ -224,7 +224,22 @@ document.getElementById("wipeSaveBtn").onclick = () => {
   refreshUI();
 };
 
-document.getElementById("editorMap").value = CONFIG.defaultCustomMap;
+// Visual editor state
+const TILE_TYPES = [
+  { key: ".", name: "Empty", className: "empty", icon: "" },
+  { key: "#", name: "Solid", className: "solid", icon: "#" },
+  { key: "P", name: "Player", className: "player", icon: "P" },
+  { key: "G", name: "Goal", className: "goal", icon: "G" },
+  { key: "C", name: "Chaser", className: "chaser", icon: "C" },
+  { key: "X", name: "Breakable", className: "breakable", icon: "X" },
+  { key: "^", name: "Spike", className: "spike", icon: "^" }
+];
+
+let selectedEditorTile = "#";
+let editorGrid = [];
+let editorPainting = false;
+
+initVisualEditor(CONFIG.defaultCustomMap);
 
 document.getElementById("saveCustomBtn").onclick = () => {
   const level = makeCustomLevelFromEditor();
@@ -263,11 +278,10 @@ document.getElementById("importCustomBtn").onclick = () => {
 };
 
 function makeCustomLevelFromEditor() {
+  syncGridToText();
+
   const name = document.getElementById("editorName").value.trim() || "Custom Level";
-  const lines = document.getElementById("editorMap").value
-    .split("\n")
-    .map(line => line.trimEnd())
-    .filter(Boolean);
+  const lines = getEditorMapLines();
 
   if (lines.length < 3) {
     alert("Map needs at least 3 rows.");
@@ -289,6 +303,179 @@ function makeCustomLevelFromEditor() {
     map: lines
   };
 }
+
+
+function initVisualEditor(mapText) {
+  const lines = typeof mapText === "string" ? mapText.split("\n").filter(Boolean) : mapText;
+  editorGrid = normalizeEditorGrid(lines);
+  renderPalette();
+  renderEditorGrid();
+  syncGridToText();
+
+  document.getElementById("resizeSmallBtn").onclick = () => resizeEditorGrid(24, 8);
+  document.getElementById("resizeBigBtn").onclick = () => resizeEditorGrid(32, 12);
+  document.getElementById("clearEditorBtn").onclick = () => {
+    if (!confirm("Clear the visual editor grid?")) return;
+    editorGrid = makeBlankEditorGrid(editorGrid[0]?.length || 24, editorGrid.length || 8);
+    editorGrid[1][1] = "P";
+    editorGrid[1][editorGrid[0].length - 2] = "G";
+    renderEditorGrid();
+    syncGridToText();
+  };
+  document.getElementById("syncTextToGridBtn").onclick = () => {
+    const lines = document.getElementById("editorMap").value.split("\n").filter(Boolean);
+    editorGrid = normalizeEditorGrid(lines);
+    renderEditorGrid();
+    syncGridToText();
+  };
+
+  window.addEventListener("pointerup", () => {
+    editorPainting = false;
+  });
+}
+
+function normalizeEditorGrid(lines) {
+  const height = Math.max(3, lines.length || 8);
+  const width = Math.max(8, ...lines.map(line => line.length), 24);
+  const grid = [];
+
+  for (let y = 0; y < height; y++) {
+    const row = [];
+    const source = lines[y] || "";
+    for (let x = 0; x < width; x++) {
+      const ch = source[x] || ".";
+      row.push(TILE_TYPES.some(t => t.key === ch) ? ch : ".");
+    }
+    grid.push(row);
+  }
+
+  return grid;
+}
+
+function makeBlankEditorGrid(width, height) {
+  const grid = [];
+  for (let y = 0; y < height; y++) {
+    const row = [];
+    for (let x = 0; x < width; x++) {
+      const border = y === 0 || x === 0 || y === height - 1 || x === width - 1;
+      row.push(border ? "#" : ".");
+    }
+    grid.push(row);
+  }
+  return grid;
+}
+
+function resizeEditorGrid(width, height) {
+  const old = editorGrid;
+  const next = makeBlankEditorGrid(width, height);
+
+  for (let y = 0; y < Math.min(height, old.length); y++) {
+    for (let x = 0; x < Math.min(width, old[y].length); x++) {
+      next[y][x] = old[y][x];
+    }
+  }
+
+  editorGrid = next;
+  ensureOneSpecial("P");
+  ensureOneSpecial("G");
+  renderEditorGrid();
+  syncGridToText();
+}
+
+function renderPalette() {
+  const palette = document.getElementById("tilePalette");
+  palette.innerHTML = "";
+
+  TILE_TYPES.forEach(tile => {
+    const btn = document.createElement("button");
+    btn.className = "tilePick" + (tile.key === selectedEditorTile ? " active" : "");
+    btn.innerHTML = `
+      <span class="tilePreview ${tile.className}">${tile.icon}</span>
+      <span>${tile.name}</span>
+    `;
+    btn.onclick = () => {
+      selectedEditorTile = tile.key;
+      document.getElementById("selectedTileName").textContent = tile.name;
+      renderPalette();
+    };
+    palette.appendChild(btn);
+  });
+
+  const selected = TILE_TYPES.find(t => t.key === selectedEditorTile);
+  document.getElementById("selectedTileName").textContent = selected?.name || "Unknown";
+}
+
+function renderEditorGrid() {
+  const grid = document.getElementById("visualEditorGrid");
+  const height = editorGrid.length;
+  const width = editorGrid[0]?.length || 0;
+
+  grid.style.gridTemplateColumns = `repeat(${width}, 30px)`;
+  grid.innerHTML = "";
+  document.getElementById("gridSizeText").textContent = `${width} × ${height}`;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const ch = editorGrid[y][x];
+      const tile = TILE_TYPES.find(t => t.key === ch) || TILE_TYPES[0];
+      const cell = document.createElement("div");
+      cell.className = `editorCell ${tile.className}`;
+      cell.textContent = tile.icon;
+      cell.title = `${tile.name} (${x}, ${y})`;
+
+      cell.addEventListener("pointerdown", e => {
+        e.preventDefault();
+        editorPainting = true;
+        paintEditorCell(x, y);
+      });
+
+      cell.addEventListener("pointerenter", e => {
+        if (!editorPainting) return;
+        e.preventDefault();
+        paintEditorCell(x, y);
+      });
+
+      grid.appendChild(cell);
+    }
+  }
+}
+
+function paintEditorCell(x, y) {
+  if (!editorGrid[y] || editorGrid[y][x] === undefined) return;
+
+  if (selectedEditorTile === "P" || selectedEditorTile === "G") {
+    removeTileEverywhere(selectedEditorTile);
+  }
+
+  editorGrid[y][x] = selectedEditorTile;
+  renderEditorGrid();
+  syncGridToText();
+}
+
+function removeTileEverywhere(tileKey) {
+  for (let y = 0; y < editorGrid.length; y++) {
+    for (let x = 0; x < editorGrid[y].length; x++) {
+      if (editorGrid[y][x] === tileKey) editorGrid[y][x] = ".";
+    }
+  }
+}
+
+function ensureOneSpecial(tileKey) {
+  const hasTile = editorGrid.some(row => row.includes(tileKey));
+  if (!hasTile && editorGrid[1]) {
+    editorGrid[1][tileKey === "P" ? 1 : editorGrid[1].length - 2] = tileKey;
+  }
+}
+
+function syncGridToText() {
+  document.getElementById("editorMap").value = editorGrid.map(row => row.join("")).join("\n");
+}
+
+function getEditorMapLines() {
+  syncGridToText();
+  return editorGrid.map(row => row.join(""));
+}
+
 
 function renderLevels() {
   const box = document.getElementById("levelList");
