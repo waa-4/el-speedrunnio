@@ -1,13 +1,186 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>El Speedrunnio</title><link rel="stylesheet" href="style.css"></head><body>
-<main>
-<section id="start" class="screen active"><div class="card title"><p class="tiny">stop moving = explode</p><h1>EL<br>SPEED<br>RUNNIO</h1><p>Pure speedrun chaos. Stand still for 5 seconds and kaboom.</p><button onclick="go('diff')">Start</button></div></section>
-<section id="diff" class="screen"><div class="card"><h2>Difficulty</h2><p class="muted">Only one door is real.</p><div class="grid2"><button onclick="rick('Baby Mode')">Baby Mode</button><button onclick="rick('Easy')">Easy</button><button onclick="rick('Normal')">Normal</button><button onclick="rick('Hard')">Hard</button><button class="inv wide" onclick="go('menu')">Pure Insane</button></div><button onclick="go('start')">Back</button></div></section>
-<section id="rick" class="screen"><div class="card title"><h2 id="rickTitle">RICKROLL.EXE</h2><div class="ascii">♪ never gonna give you up ♪</div><button onclick="go('diff')">Return</button></div></section>
-<section id="menu" class="screen"><div class="card"><h2>Main Menu</h2><p>Points: <b id="points">0</b></p><div class="grid2"><button onclick="go('levels')">Play Levels</button><button onclick="go('ups')">Upgrades</button><button onclick="go('editor')">Grid Editor</button><button onclick="go('custom')">Custom Levels</button><button onclick="go('settings')">Settings</button><button class="inv" onclick="wipe()">Wipe Save</button></div></div></section>
-<section id="levels" class="screen"><div class="card wide"><h2>Levels</h2><div id="levelList" class="list"></div><button onclick="go('menu')">Main Menu</button></div></section>
-<section id="custom" class="screen"><div class="card wide"><h2>Custom Levels</h2><div id="customList" class="list"></div><button onclick="go('menu')">Main Menu</button></div></section>
-<section id="ups" class="screen"><div class="card wide"><h2>Upgrades</h2><p>Points: <b id="upPoints">0</b></p><div id="upList" class="list"></div><button onclick="go('menu')">Main Menu</button></div></section>
-<section id="settings" class="screen"><div class="card wide"><h2>Settings</h2><div class="settings"><label><input id="setShake" type="checkbox"> Screen shake</label><label><input id="setSound" type="checkbox"> Sound / playlist</label><label><input id="setFx" type="checkbox"> Extra effects + wind</label><label><input id="setBreak" type="checkbox"> Shake on block break</label><label><input id="setDeath" type="checkbox"> Shake on death</label></div><p class="muted">Music uses playlist/playlist.json. If nothing is found, it stays silent.</p><button onclick="go('menu')">Main Menu</button></div></section>
-<section id="editor" class="screen"><div class="card editorCard"><h2>Grid Editor</h2><p class="muted">Pick an asset, then click/drag on the grid.</p><label>Level name <input id="edName" value="Custom Maze Disaster"></label><div class="editorShell"><aside><h3>Assets</h3><div id="palette"></div><h3>Grid</h3><button onclick="newGrid(24,12,true)">Small Maze</button><button onclick="newGrid(42,20,true)">Big Maze</button><button onclick="newGrid(ed[0].length,ed.length,true)">Maze Fill</button><button class="inv" onclick="newGrid(ed[0].length,ed.length,false)">Clear</button><p class="muted"># solid, . empty, P player, G goal, B boost, C chaser, L laser, N cannon, X breakable, ^ spike</p></aside><section><div class="bar"><span>Selected: <b id="selName">Solid</b></span><span id="sizeText"></span></div><div id="edGrid" class="edGrid"></div></section></div><details><summary>Text map / share</summary><textarea id="mapText"></textarea><button onclick="textToGrid()">Load Text Into Grid</button></details><div class="row"><button onclick="saveCustom()">Save Custom</button><button onclick="exportCustom()">Export Code</button><button onclick="importCustom()">Import Code</button></div><textarea id="share" placeholder="Share code here"></textarea><button onclick="go('menu')">Main Menu</button></div></section>
-<section id="game" class="screen game"><canvas id="c"></canvas><div class="hud"><span id="hudName">Level</span><span>Time: <b id="hudTime">0.00</b></span><span>Best: <b id="hudBest">--</b></span><span>Stillness: <b id="hudIdle">5.0</b></span></div><button class="exit" onclick="go('menu')">Exit</button><div class="mobile"><button id="lt">◀</button><button id="jt">▲</button><button id="rt">▶</button><button id="dt">DASH</button></div></section>
-<script src="main.js"></script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>El Speedrunnio</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main id="app">
+    <section id="startScreen" class="screen active">
+      <div class="card titleCard">
+        <p class="tiny">stop moving = kaboom</p>
+        <h1>EL<br>SPEED<br>RUNNIO</h1>
+        <p class="muted">A cluttered speedrun maze platformer where standing still is illegal.</p>
+        <button id="startBtn">Start</button>
+      </div>
+    </section>
+
+    <section id="difficultyScreen" class="screen">
+      <div class="card">
+        <h2>Difficulty</h2>
+        <p class="muted">Only one option is honest.</p>
+        <div class="menuGrid">
+          <button class="fakeDiff" data-name="Baby Mode">Baby Mode</button>
+          <button class="fakeDiff" data-name="Easy">Easy</button>
+          <button class="fakeDiff" data-name="Normal">Normal</button>
+          <button class="fakeDiff" data-name="Hard">Hard</button>
+          <button id="pureBtn" class="wide inverted">Pure Insane</button>
+        </div>
+        <button class="backStart">Back</button>
+      </div>
+    </section>
+
+    <section id="rickScreen" class="screen">
+      <div class="card titleCard">
+        <h2 id="rickTitle">RICKROLL.EXE</h2>
+        <p class="muted">This difficulty is not real.</p>
+        <div class="ascii">♪ never gonna give you up ♪</div>
+        <button id="rickBackBtn">Return</button>
+      </div>
+    </section>
+
+    <section id="menuScreen" class="screen">
+      <div class="card">
+        <h2>Main Menu</h2>
+        <p class="muted">Points: <b id="pointsText">0</b></p>
+        <div class="menuGrid">
+          <button id="levelsBtn">Play Levels</button>
+          <button id="upgradesBtn">Upgrades</button>
+          <button id="editorBtn">Grid Level Editor</button>
+          <button id="customBtn">Custom Levels</button>
+          <button id="settingsBtn">Settings</button>
+          <button id="wipeBtn" class="inverted">Wipe Save</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="levelsScreen" class="screen">
+      <div class="card wideCard">
+        <h2>Levels</h2>
+        <div id="levelList" class="list"></div>
+        <button class="menuBack">Main Menu</button>
+      </div>
+    </section>
+
+    <section id="customScreen" class="screen">
+      <div class="card wideCard">
+        <h2>Custom Levels</h2>
+        <div id="customList" class="list"></div>
+        <button class="menuBack">Main Menu</button>
+      </div>
+    </section>
+
+    <section id="upgradesScreen" class="screen">
+      <div class="card wideCard">
+        <h2>Upgrades</h2>
+        <p>Points: <b id="upgradePointsText">0</b></p>
+        <div id="upgradeList" class="list"></div>
+        <button class="menuBack">Main Menu</button>
+      </div>
+    </section>
+
+    <section id="settingsScreen" class="screen">
+      <div class="card wideCard">
+        <h2>Settings</h2>
+        <div class="settingsGrid">
+          <label><input id="shakeToggle" type="checkbox"> Screen shake</label>
+          <label><input id="soundToggle" type="checkbox"> Sound + playlist music</label>
+          <label><input id="effectsToggle" type="checkbox"> Effects / wind FX</label>
+          <label><input id="breakShakeToggle" type="checkbox"> Shake on block break</label>
+          <label><input id="deathShakeToggle" type="checkbox"> Shake on death</label>
+        </div>
+        <p class="muted">Music reads <code>playlist/playlist.json</code>. If nothing exists, it plays nothing.</p>
+        <button class="menuBack">Main Menu</button>
+      </div>
+    </section>
+
+    <section id="editorScreen" class="screen">
+      <div class="card editorCard">
+        <h2>Grid Level Editor</h2>
+        <p class="muted">Pick an asset, then click/drag tiles.</p>
+
+        <label class="field">
+          Level name
+          <input id="editorName" value="Custom Maze Disaster">
+        </label>
+
+        <div class="editorShell">
+          <aside class="palette">
+            <h3>Assets</h3>
+            <div id="paletteButtons"></div>
+
+            <h3>Grid</h3>
+            <div class="buttonStack">
+              <button id="smallGridBtn">Small</button>
+              <button id="bigGridBtn">Big</button>
+              <button id="mazeGridBtn">Maze Fill</button>
+              <button id="clearGridBtn" class="inverted">Clear</button>
+            </div>
+
+            <div class="legend">
+              <b>Keys</b>
+              <span># Solid</span>
+              <span>. Empty</span>
+              <span>P Player</span>
+              <span>G Goal</span>
+              <span>B Touch boost</span>
+              <span>C Chaser</span>
+              <span>L Laser</span>
+              <span>N Cannon</span>
+              <span>X Breakable</span>
+              <span>^ Spike</span>
+            </div>
+          </aside>
+
+          <section class="gridSide">
+            <div class="editorBar">
+              <span>Selected: <b id="selectedTileText">Solid</b></span>
+              <span id="gridSizeText">0 × 0</span>
+            </div>
+            <div id="editorGrid" class="editorGrid"></div>
+          </section>
+        </div>
+
+        <details>
+          <summary>Share / text map</summary>
+          <textarea id="mapText" spellcheck="false"></textarea>
+          <button id="loadTextBtn">Load Text Into Grid</button>
+        </details>
+
+        <div class="buttonRow">
+          <button id="saveCustomBtn">Save Custom Level</button>
+          <button id="exportBtn">Export Code</button>
+          <button id="importBtn">Import Code</button>
+        </div>
+        <textarea id="shareBox" placeholder="Share code appears here..." spellcheck="false"></textarea>
+
+        <button class="menuBack">Main Menu</button>
+      </div>
+    </section>
+
+    <section id="gameScreen" class="screen gameScreen">
+      <canvas id="gameCanvas" width="960" height="540"></canvas>
+
+      <div class="hud">
+        <span id="hudLevel">Level</span>
+        <span>Time: <b id="hudTime">0.00</b></span>
+        <span>Best: <b id="hudBest">--</b></span>
+        <span>Stillness: <b id="hudIdle">5.0</b></span>
+      </div>
+
+      <button id="exitGameBtn" class="exitBtn">Exit</button>
+
+      <div class="mobileControls">
+        <button id="leftTouch">◀</button>
+        <button id="jumpTouch">▲</button>
+        <button id="rightTouch">▶</button>
+        <button id="dashTouch">DASH</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="main.js"></script>
+</body>
+</html>
