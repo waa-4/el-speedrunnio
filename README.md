@@ -1,40 +1,34 @@
-# Move or Explode v1
+[README.md](https://github.com/user-attachments/files/28113550/README.md)
+# El Speedrunnio v1 Fixed
 
-A GitHub Pages platformer where stopping for 5 seconds makes the player explode.
+This is the fixed version of the black/grey/white speedrun platformer.
 
-## Files
+## Main fix
 
-- `index.html`
-- `style.css`
-- `main.js`
+The old version could speed itself up because multiple `requestAnimationFrame` loops could stack when starting/retrying levels.
+
+This version uses:
+
+- `animationId`
+- `startGameLoop()`
+- `stopGameLoop()`
+- `cancelAnimationFrame(animationId)`
+- dt-based movement
 
 ## Controls
 
 - Move: A/D or Arrow Keys
 - Jump: W, Up, or Space
 - Dash: Shift or E
-- Sword: Click / tap the game area
-- Retry after exploding: R
-- Leave game: Escape or Exit button
+- Sword: Click / tap game area
+- Retry: R
+- Exit: Escape or Exit button
 
-## Game flow
+## Upload
 
-Baby Mode, Easy, Normal, and Hard are fake rickroll modes. Pure Insane starts the real game.
+Drag these files into GitHub Pages:
 
-Beat levels to earn 2 points, then spend points on Speed, Jump, and Dash upgrades.
-
-## Map keys
-
-```text
-# = solid block
-. = empty
-P = player spawn
-G = goal
-C = chaser enemy
-X = breakable block
-^ = spike
-```
-
-## GitHub Pages
-
-Upload the files into a repo and enable GitHub Pages. No build tools needed.
+- `index.html`
+- `style.css`
+- `main.js`
+- `README.md`
