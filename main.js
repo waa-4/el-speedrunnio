@@ -14,7 +14,7 @@ const CONFIG = {
   idleExplodeTime: 5,
 
   playerBase: {
-    speed: 200,
+    speed: 1500,
     maxRun: 310,
     jump: 860,
     dash: 520,
