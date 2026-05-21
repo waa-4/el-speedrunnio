@@ -1,4 +1,3 @@
-[README.md](https://github.com/user-attachments/files/28113550/README.md)
 # El Speedrunnio v1 Fixed
 
 This is the fixed version of the black/grey/white speedrun platformer.
@@ -24,11 +23,6 @@ This version uses:
 - Retry: R
 - Exit: Escape or Exit button
 
-## Upload
+## Testing Link (ignore this)
 
-Drag these files into GitHub Pages:
-
-- `index.html`
-- `style.css`
-- `main.js`
-- `README.md`
+[README.md](https://github.com/user-attachments/files/28113550/README.md)
