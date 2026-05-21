@@ -1,30 +1,893 @@
-const CONFIG={tile:40,gravity:.75,friction:.82,idle:5,base:{speed:4.2,jump:14,dash:12,swordDamage:1},upgrades:{speed:{name:'Speed',cost:2,max:8,add:.35},jump:{name:'Jump',cost:2,max:8,add:.8},dash:{name:'Dash',cost:2,max:8,add:.75}},levels:[{id:'1-1',name:'Move or Boom',reward:2,map:['########################','#P....................G#','#.............C........#','#......####............#','#......................#','#............####......#','#......................#','########################']},{id:'1-2',name:'The Floor Has Opinions',reward:2,map:['########################','#P....................G#','#....####..............#','#..............C.......#','#.........^^^^.........#','#......####......####..#','#......................#','########################']},{id:'1-3',name:'Breakable Panic',reward:2,map:['########################','#P...........X........G#','#...........XXX........#','#.....C.....XXX........#','#..........#####.......#','#......................#','#...............C......#','########################']}],defaultMap:['########################','#P....................G#','#........C.............#','#......####............#','#...............^^^^...#','#......................#','#......................#','########################'].join('\n')};
-const $=id=>document.getElementById(id),screens=['start','diff','rick','menu','levels','upgrades','editor','custom','game'];
-const saveKey='move_or_explode_v1_save',customKey='move_or_explode_v1_custom';
-let save=load(saveKey,{points:0,beaten:{},upgrades:{speed:0,jump:0,dash:0}}),custom=load(customKey,[]),keys={},mobile={left:false,right:false,jump:false,dash:false},game=null,last=0;
-const canvas=$('canvas'),ctx=canvas.getContext('2d');$('edMap').value=CONFIG.defaultMap;
-function load(k,d){try{return JSON.parse(localStorage.getItem(k))||d}catch{return d}}function store(){localStorage.setItem(saveKey,JSON.stringify(save))}function storeCustom(){localStorage.setItem(customKey,JSON.stringify(custom))}
-function show(id){screens.forEach(s=>$(s).classList.toggle('active',s===id));refresh();if(id==='game')resize()}function rick(n){$('rickTitle').textContent=n+' was a lie';show('rick')}function wipeSave(){if(confirm('Wipe save data?')){save={points:0,beaten:{},upgrades:{speed:0,jump:0,dash:0}};store();refresh()}}
-function refresh(){$('pointsA').textContent=save.points;$('pointsB').textContent=save.points;$('pointsC').textContent=save.points;renderLevels();renderUpgrades();renderCustom()}
-function stats(){return{speed:CONFIG.base.speed+save.upgrades.speed*CONFIG.upgrades.speed.add,jump:CONFIG.base.jump+save.upgrades.jump*CONFIG.upgrades.jump.add,dash:CONFIG.base.dash+save.upgrades.dash*CONFIG.upgrades.dash.add,swordDamage:1}}
-function renderLevels(){let box=$('levelList');box.innerHTML='';CONFIG.levels.forEach(l=>box.appendChild(levelNode(l,false)))}
-function renderCustom(){let box=$('customList');box.innerHTML='';if(!custom.length){box.innerHTML='<p class="muted">No custom levels yet. Make one in Level Creator.</p>';return}custom.forEach((l,i)=>{let n=levelNode(l,true);let del=document.createElement('button');del.textContent='Delete';del.className='danger';del.onclick=()=>{if(confirm('Delete custom level?')){custom.splice(i,1);storeCustom();refresh()}};n.appendChild(del);box.appendChild(n)})}
-function levelNode(l,isCustom){let d=document.createElement('div');d.className='item';d.innerHTML=`<div><b>${esc(l.id||'custom')} — ${esc(l.name)}</b><p>${save.beaten[l.id]?'Completed':'Not completed'} • Reward: ${l.reward||2} points</p></div>`;let b=document.createElement('button');b.textContent='Play';b.onclick=()=>startLevel(l);d.appendChild(b);return d}
-function renderUpgrades(){let box=$('upgradeList');box.innerHTML='';Object.entries(CONFIG.upgrades).forEach(([id,u])=>{let lv=save.upgrades[id]||0,max=lv>=u.max,d=document.createElement('div');d.className='item';d.innerHTML=`<div><b>${u.name} Lv ${lv}/${u.max}</b><p>Cost: ${max?'MAX':u.cost+' points'}</p></div>`;let b=document.createElement('button');b.textContent='Upgrade';b.disabled=max;b.onclick=()=>{if(save.points<u.cost)return alert('Not enough points.');save.points-=u.cost;save.upgrades[id]++;store();refresh()};d.appendChild(b);box.appendChild(d)})}
-function makeCustom(){let name=$('edName').value.trim()||'Custom Level',map=$('edMap').value.split('\n').map(x=>x.trimEnd()).filter(Boolean);let joined=map.join('');if(map.length<3)return alert('Map needs at least 3 rows.'),null;if(!joined.includes('P')||!joined.includes('G'))return alert('Map needs P and G.'),null;return{id:'custom-'+Date.now(),name,reward:2,custom:true,map}}
-function saveCustom(){let l=makeCustom();if(!l)return;custom.push(l);storeCustom();refresh();alert('Custom level saved.')}function exportCustom(){let l=makeCustom();if(!l)return;$('shareBox').value=btoa(unescape(encodeURIComponent(JSON.stringify(l))))}function importCustom(){try{let l=JSON.parse(decodeURIComponent(escape(atob($('shareBox').value.trim()))));if(!l.name||!Array.isArray(l.map))throw 0;l.id='custom-'+Date.now();l.custom=true;l.reward=2;custom.push(l);storeCustom();refresh();alert('Imported custom level.')}catch{alert('Import failed.')}}
-function startLevel(level){show('game');resize();game={level,stats:stats(),tiles:[],enemies:[],particles:[],camera:{x:0,y:0},idle:CONFIG.idle,complete:false,dead:false,msg:'',msgTimer:0,player:{x:80,y:80,w:28,h:34,vx:0,vy:0,onGround:false,facing:1,dashCd:0,sword:0}};parse(level.map);$('hudName').textContent=level.name;last=performance.now();requestAnimationFrame(loop)}
-function parse(map){map.forEach((row,y)=>[...row].forEach((ch,x)=>{let tx=x*CONFIG.tile,ty=y*CONFIG.tile;if(ch==='#')game.tiles.push({x:tx,y:ty,w:40,h:40,type:'solid'});if(ch==='X')game.tiles.push({x:tx,y:ty,w:40,h:40,type:'break'});if(ch==='^')game.tiles.push({x:tx,y:ty+12,w:40,h:28,type:'spike'});if(ch==='P'){game.player.x=tx+6;game.player.y=ty+2}if(ch==='G')game.goal={x:tx,y:ty,w:40,h:40};if(ch==='C')game.enemies.push({x:tx+5,y:ty+4,w:30,h:34,vx:0,vy:0,hp:2,onGround:false})}))}
-function loop(now){if(!game)return;let dt=Math.min((now-last)/1000,.033);last=now;update(dt);draw();if($('game').classList.contains('active'))requestAnimationFrame(loop)}
-function update(dt){let p=game.player,ix=(keys.ArrowRight||keys.KeyD||mobile.right?1:0)-(keys.ArrowLeft||keys.KeyA||mobile.left?1:0),jump=keys.ArrowUp||keys.KeyW||keys.Space||mobile.jump,dash=keys.ShiftLeft||keys.ShiftRight||keys.KeyE||mobile.dash;if(!game.dead&&!game.complete){if(ix){p.vx+=ix*game.stats.speed*.22;p.facing=ix;game.idle=CONFIG.idle}else if(Math.abs(p.vx)<.1&&p.onGround)game.idle-=dt;else game.idle=Math.max(game.idle-dt*.2,0);if(jump&&p.onGround){p.vy=-game.stats.jump;p.onGround=false;game.idle=CONFIG.idle}if(dash&&p.dashCd<=0){p.vx=p.facing*game.stats.dash;p.dashCd=.8;burst(p.x+p.w/2,p.y+p.h/2,10);game.idle=CONFIG.idle}if(keys.MouseDown&&p.sword<=0)swing();if(game.idle<=0)explode('You stopped moving.')}p.dashCd-=dt;p.sword-=dt;p.vy+=CONFIG.gravity;p.vx*=CONFIG.friction;move(p,p.vx,0);move(p,0,p.vy);enemies(dt);particles(dt);if(!game.dead&&game.goal&&touch(p,game.goal))complete();game.camera.x=clamp(p.x-canvas.width/2,getLevelW()-canvas.width);game.camera.y=clamp(p.y-canvas.height/2,getLevelH()-canvas.height);$('idleHud').textContent=Math.max(0,game.idle).toFixed(1);$('pointsC').textContent=save.points;if(game.msgTimer>0)game.msgTimer-=dt}
-function enemies(dt){let p=game.player;game.enemies.forEach(e=>{if(e.dead)return;let dir=Math.sign((p.x+p.w/2)-(e.x+e.w/2))||1;e.vx+=dir*.12;e.vx=clamp(e.vx,-2.5,2.5);e.vy+=CONFIG.gravity;e.vx*=.88;move(e,e.vx,0);move(e,0,e.vy);if(!game.dead&&touch(p,e))explode('A chaser touched you.')})}
-function move(o,dx,dy){o.x+=dx;o.y+=dy;o.onGround=false;for(const t of game.tiles){if(!touch(o,t))continue;if(t.type==='spike'&&o===game.player){explode('Spikes are rude.');continue}if(t.type!=='solid'&&t.type!=='break')continue;if(dx>0)o.x=t.x-o.w;if(dx<0)o.x=t.x+t.w;if(dy>0){o.y=t.y-o.h;o.vy=0;o.onGround=true}if(dy<0){o.y=t.y+t.h;o.vy=0}if(dx)o.vx=0}}
-function swing(){let p=game.player;p.sword=.22;game.idle=CONFIG.idle;let s={x:p.facing>0?p.x+p.w:p.x-46,y:p.y+4,w:46,h:p.h};game.enemies.forEach(e=>{if(!e.dead&&touch(s,e)){e.hp--;e.vx+=p.facing*6;burst(e.x+15,e.y+15,8);if(e.hp<=0){e.dead=true;burst(e.x+15,e.y+15,18)}}});for(let i=game.tiles.length-1;i>=0;i--){let t=game.tiles[i];if(t.type==='break'&&touch(s,t)){burst(t.x+20,t.y+20,12);game.tiles.splice(i,1)}}}
-function explode(reason){if(game.dead||game.complete)return;game.dead=true;game.msg=reason+' Press R to retry.';game.msgTimer=999;burst(game.player.x+14,game.player.y+17,50)}function complete(){game.complete=true;if(!save.beaten[game.level.id]){save.beaten[game.level.id]=true;save.points+=game.level.reward||2;store()}game.msg='Level complete! Press Enter.';game.msgTimer=999;burst(game.goal.x+20,game.goal.y+20,30);refresh()}
-function burst(x,y,n){for(let i=0;i<n;i++)game.particles.push({x,y,vx:(Math.random()*2-1)*8,vy:(Math.random()*2-1)*8,life:.5+Math.random()*.6,size:3+Math.random()*6})}function particles(dt){game.particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.25;p.life-=dt});game.particles=game.particles.filter(p=>p.life>0)}
-function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);ctx.save();ctx.translate(-game.camera.x,-game.camera.y);bg();tiles();goal();drawEnemies();player();drawParticles();ctx.restore();if(game.msgTimer>0){ctx.fillStyle='rgba(0,0,0,.76)';ctx.fillRect(0,canvas.height/2-55,canvas.width,110);ctx.strokeStyle='#fff';ctx.strokeRect(20,canvas.height/2-45,canvas.width-40,90);ctx.fillStyle='#fff';ctx.font='bold 30px Arial';ctx.textAlign='center';ctx.fillText(game.msg,canvas.width/2,canvas.height/2+10);ctx.textAlign='left'}}function bg(){let w=getLevelW(),h=getLevelH();ctx.fillStyle='#080808';ctx.fillRect(0,0,w,h);ctx.strokeStyle='#1c1c1c';for(let x=0;x<w;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}for(let y=0;y<h;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}}
-function tiles(){game.tiles.forEach(t=>{if(t.type==='solid'){ctx.fillStyle='#ddd';ctx.fillRect(t.x,t.y,t.w,t.h);ctx.strokeStyle='#000';ctx.lineWidth=4;ctx.strokeRect(t.x,t.y,t.w,t.h)}if(t.type==='break'){ctx.fillStyle='#777';ctx.fillRect(t.x,t.y,t.w,t.h);ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(t.x+3,t.y+3,t.w-6,t.h-6)}if(t.type==='spike'){ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(t.x,t.y+t.h);ctx.lineTo(t.x+20,t.y);ctx.lineTo(t.x+40,t.y+t.h);ctx.closePath();ctx.fill();ctx.strokeStyle='#000';ctx.stroke()}})}function goal(){let g=game.goal;if(!g)return;ctx.fillStyle='#000';ctx.fillRect(g.x+8,g.y+4,8,g.h);ctx.fillStyle='#fff';ctx.fillRect(g.x+16,g.y+6,24,18);ctx.strokeStyle='#000';ctx.strokeRect(g.x+16,g.y+6,24,18)}function player(){let p=game.player;if(!game.dead){ctx.fillStyle='#fff';ctx.fillRect(p.x,p.y,p.w,p.h);ctx.strokeStyle='#000';ctx.lineWidth=4;ctx.strokeRect(p.x,p.y,p.w,p.h);ctx.fillStyle='#000';ctx.fillRect(p.x+(p.facing>0?18:6),p.y+9,5,5)}if(p.sword>0){ctx.fillStyle='#fff';let sx=p.facing>0?p.x+p.w:p.x-48;ctx.fillRect(sx,p.y+10,48,8);ctx.strokeStyle='#000';ctx.strokeRect(sx,p.y+10,48,8)}}function drawEnemies(){game.enemies.forEach(e=>{if(e.dead)return;ctx.fillStyle='#111';ctx.fillRect(e.x,e.y,e.w,e.h);ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.strokeRect(e.x,e.y,e.w,e.h);ctx.fillStyle='#fff';ctx.fillRect(e.x+7,e.y+10,5,5);ctx.fillRect(e.x+18,e.y+10,5,5)})}function drawParticles(){game.particles.forEach(p=>{ctx.fillStyle=p.life>.35?'#fff':'#777';ctx.fillRect(p.x,p.y,p.size,p.size)})}
-function touch(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y}function clamp(n,min,max){if(max===undefined){max=min;min=0}return Math.max(min,Math.min(max,n))}function getLevelW(){return Math.max(...game.level.map.map(r=>r.length))*40}function getLevelH(){return game.level.map.length*40}function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}function resize(){canvas.width=innerWidth;canvas.height=innerHeight}
-addEventListener('resize',resize);addEventListener('keydown',e=>{keys[e.code]=true;if($('game').classList.contains('active')){if(e.code==='KeyR'&&game)startLevel(game.level);if(e.code==='Enter'&&game?.complete)show(game.level.custom?'custom':'levels');if(e.code==='Escape')show('menu')}});addEventListener('keyup',e=>keys[e.code]=false);canvas.addEventListener('mousedown',()=>keys.MouseDown=true);addEventListener('mouseup',()=>keys.MouseDown=false);canvas.addEventListener('touchstart',()=>keys.MouseDown=true,{passive:true});canvas.addEventListener('touchend',()=>keys.MouseDown=false,{passive:true});
-function bind(id,prop){let b=$(id);['pointerdown'].forEach(ev=>b.addEventListener(ev,e=>{e.preventDefault();mobile[prop]=true}));['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>mobile[prop]=false))}bind('mLeft','left');bind('mRight','right');bind('mJump','jump');bind('mDash','dash');
-refresh();show('start');
+/*
+  EL SPEEDRUNNIO v1 FIXED
+
+  Fix in this version:
+  - The game no longer creates stacked requestAnimationFrame loops.
+  - Movement now uses dt scaling, so frame rate changes do not make the game faster/slower.
+*/
+
+const CONFIG = {
+  tile: 40,
+  gravity: 1900,
+  frictionGround: 0.84,
+  frictionAir: 0.96,
+  idleExplodeTime: 5,
+
+  playerBase: {
+    speed: 900,
+    maxRun: 310,
+    jump: 560,
+    dash: 520,
+    swordDamage: 1
+  },
+
+  upgrades: {
+    speed: { name: "Speed", cost: 2, max: 8, add: 35 },
+    jump: { name: "Jump", cost: 2, max: 8, add: 28 },
+    dash: { name: "Dash", cost: 2, max: 8, add: 30 }
+  },
+
+  levels: [
+    {
+      id: "1-1",
+      name: "Move or Boom",
+      reward: 2,
+      par: 30,
+      map: [
+        "########################",
+        "#P........#...........G#",
+        "#.............C........#",
+        "#......####............#",
+        "#................#.....#",
+        "#............####......#",
+        "#....#.................#",
+        "########################"
+      ]
+    },
+    {
+      id: "1-2",
+      name: "The Floor Has Opinions",
+      reward: 2,
+      par: 35,
+      map: [
+        "########################",
+        "#P....................G#",
+        "#....####..............#",
+        "#..............C.......#",
+        "#.........^^^^.........#",
+        "#......####......####..#",
+        "#......................#",
+        "########################"
+      ]
+    },
+    {
+      id: "1-3",
+      name: "Breakable Panic",
+      reward: 2,
+      par: 40,
+      map: [
+        "########################",
+        "#P...........X........G#",
+        "#...........XXX........#",
+        "#.....C.....XXX........#",
+        "#..........#####.......#",
+        "#......................#",
+        "#...............C......#",
+        "########################"
+      ]
+    }
+  ],
+
+  defaultCustomMap: [
+    "########################",
+    "#P....................G#",
+    "#........C.............#",
+    "#......####............#",
+    "#...............^^^^...#",
+    "#......................#",
+    "#......................#",
+    "########################"
+  ].join("\n")
+};
+
+const screens = {
+  start: document.getElementById("startScreen"),
+  difficulty: document.getElementById("difficultyScreen"),
+  rick: document.getElementById("rickScreen"),
+  main: document.getElementById("mainMenuScreen"),
+  levels: document.getElementById("levelsScreen"),
+  upgrades: document.getElementById("upgradesScreen"),
+  editor: document.getElementById("editorScreen"),
+  custom: document.getElementById("customScreen"),
+  game: document.getElementById("gameScreen")
+};
+
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const saveKey = "move_or_explode_v1_save";
+const customKey = "move_or_explode_v1_custom_levels";
+
+let save = loadSave();
+let customLevels = loadCustomLevels();
+
+let keys = {};
+let mobile = { left: false, right: false, jump: false, dash: false };
+let game = null;
+
+let animationId = null;
+let gameLoopRunning = false;
+let lastTime = 0;
+
+function showScreen(name) {
+  Object.values(screens).forEach(screen => screen.classList.remove("active"));
+  screens[name].classList.add("active");
+
+  if (name !== "game") {
+    stopGameLoop();
+  }
+
+  refreshUI();
+}
+
+function startGameLoop() {
+  stopGameLoop();
+  gameLoopRunning = true;
+  lastTime = performance.now();
+  animationId = requestAnimationFrame(loop);
+}
+
+function stopGameLoop() {
+  gameLoopRunning = false;
+  if (animationId !== null) {
+    cancelAnimationFrame(animationId);
+    animationId = null;
+  }
+}
+
+function loadSave() {
+  try {
+    return JSON.parse(localStorage.getItem(saveKey)) || {
+      points: 0,
+      beaten: {},
+      upgrades: { speed: 0, jump: 0, dash: 0 }
+    };
+  } catch {
+    return { points: 0, beaten: {}, upgrades: { speed: 0, jump: 0, dash: 0 } };
+  }
+}
+
+function saveGame() {
+  localStorage.setItem(saveKey, JSON.stringify(save));
+}
+
+function loadCustomLevels() {
+  try {
+    return JSON.parse(localStorage.getItem(customKey)) || [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomLevels() {
+  localStorage.setItem(customKey, JSON.stringify(customLevels));
+}
+
+function refreshUI() {
+  document.getElementById("pointsText").textContent = save.points;
+  document.getElementById("upgradePointsText").textContent = save.points;
+  document.getElementById("gamePointsHud").textContent = save.points;
+  renderLevels();
+  renderUpgrades();
+  renderCustomLevels();
+}
+
+function getStats() {
+  return {
+    speed: CONFIG.playerBase.speed + save.upgrades.speed * CONFIG.upgrades.speed.add,
+    maxRun: CONFIG.playerBase.maxRun + save.upgrades.speed * 18,
+    jump: CONFIG.playerBase.jump + save.upgrades.jump * CONFIG.upgrades.jump.add,
+    dash: CONFIG.playerBase.dash + save.upgrades.dash * CONFIG.upgrades.dash.add,
+    swordDamage: CONFIG.playerBase.swordDamage
+  };
+}
+
+document.getElementById("startBtn").onclick = () => showScreen("difficulty");
+
+document.querySelectorAll(".backBtn").forEach(btn => {
+  btn.onclick = () => showScreen("start");
+});
+
+document.querySelectorAll(".menuBackBtn").forEach(btn => {
+  btn.onclick = () => showScreen("main");
+});
+
+document.querySelectorAll(".fakeDiff").forEach(btn => {
+  btn.onclick = () => {
+    document.getElementById("rickTitle").textContent = `${btn.dataset.name} was a lie`;
+    document.getElementById("rickText").textContent = "You selected the rickroll difficulty. Pure Insane is the only real door.";
+    showScreen("rick");
+  };
+});
+
+document.getElementById("rickBackBtn").onclick = () => showScreen("difficulty");
+document.getElementById("pureInsaneBtn").onclick = () => showScreen("main");
+document.getElementById("playBtn").onclick = () => showScreen("levels");
+document.getElementById("upgradeBtn").onclick = () => showScreen("upgrades");
+document.getElementById("editorBtn").onclick = () => showScreen("editor");
+document.getElementById("customBtn").onclick = () => showScreen("custom");
+
+document.getElementById("wipeSaveBtn").onclick = () => {
+  if (!confirm("Wipe points, beaten levels, and upgrades?")) return;
+  save = { points: 0, beaten: {}, upgrades: { speed: 0, jump: 0, dash: 0 } };
+  saveGame();
+  refreshUI();
+};
+
+document.getElementById("editorMap").value = CONFIG.defaultCustomMap;
+
+document.getElementById("saveCustomBtn").onclick = () => {
+  const level = makeCustomLevelFromEditor();
+  if (!level) return;
+  customLevels.push(level);
+  saveCustomLevels();
+  refreshUI();
+  alert("Custom level saved.");
+};
+
+document.getElementById("exportCustomBtn").onclick = () => {
+  const level = makeCustomLevelFromEditor();
+  if (!level) return;
+  document.getElementById("shareBox").value = btoa(unescape(encodeURIComponent(JSON.stringify(level))));
+};
+
+document.getElementById("importCustomBtn").onclick = () => {
+  try {
+    const text = document.getElementById("shareBox").value.trim();
+    const level = JSON.parse(decodeURIComponent(escape(atob(text))));
+    if (!level.name || !Array.isArray(level.map)) throw new Error("Bad level");
+    customLevels.push({
+      id: "custom-" + Date.now(),
+      name: level.name,
+      reward: 2,
+      par: level.par || 60,
+      custom: true,
+      map: level.map
+    });
+    saveCustomLevels();
+    refreshUI();
+    alert("Imported custom level.");
+  } catch {
+    alert("Import failed. Paste a valid exported level code.");
+  }
+};
+
+function makeCustomLevelFromEditor() {
+  const name = document.getElementById("editorName").value.trim() || "Custom Level";
+  const lines = document.getElementById("editorMap").value
+    .split("\n")
+    .map(line => line.trimEnd())
+    .filter(Boolean);
+
+  if (lines.length < 3) {
+    alert("Map needs at least 3 rows.");
+    return null;
+  }
+
+  const joined = lines.join("");
+  if (!joined.includes("P") || !joined.includes("G")) {
+    alert("Map needs P for player and G for goal.");
+    return null;
+  }
+
+  return {
+    id: "custom-" + Date.now(),
+    name,
+    reward: 2,
+    par: 60,
+    custom: true,
+    map: lines
+  };
+}
+
+function renderLevels() {
+  const box = document.getElementById("levelList");
+  box.innerHTML = "";
+
+  CONFIG.levels.forEach(level => {
+    const div = document.createElement("div");
+    div.className = "levelItem";
+    const beaten = save.beaten[level.id] ? "Completed" : "Not completed";
+
+    div.innerHTML = `
+      <div>
+        <b>${escapeHTML(level.id)} — ${escapeHTML(level.name)}</b>
+        <p>${beaten} • Reward: ${level.reward} points</p>
+      </div>
+      <button>Play</button>
+    `;
+
+    div.querySelector("button").onclick = () => startLevel(level);
+    box.appendChild(div);
+  });
+}
+
+function renderCustomLevels() {
+  const box = document.getElementById("customList");
+  box.innerHTML = "";
+
+  if (customLevels.length === 0) {
+    box.innerHTML = `<p class="muted">No custom levels yet. Make one in Level Creator.</p>`;
+    return;
+  }
+
+  customLevels.forEach((level, index) => {
+    const div = document.createElement("div");
+    div.className = "levelItem";
+    div.innerHTML = `
+      <div>
+        <b>${escapeHTML(level.name)}</b>
+        <p>Custom level • Reward: ${level.reward || 2} points</p>
+      </div>
+      <div class="buttonRow">
+        <button class="playCustom">Play</button>
+        <button class="deleteCustom danger">Delete</button>
+      </div>
+    `;
+
+    div.querySelector(".playCustom").onclick = () => startLevel(level);
+    div.querySelector(".deleteCustom").onclick = () => {
+      if (!confirm("Delete this custom level?")) return;
+      customLevels.splice(index, 1);
+      saveCustomLevels();
+      refreshUI();
+    };
+    box.appendChild(div);
+  });
+}
+
+function renderUpgrades() {
+  const box = document.getElementById("upgradeList");
+  box.innerHTML = "";
+
+  Object.entries(CONFIG.upgrades).forEach(([id, data]) => {
+    const level = save.upgrades[id] || 0;
+    const maxed = level >= data.max;
+    const div = document.createElement("div");
+    div.className = "upgradeItem";
+    div.innerHTML = `
+      <div>
+        <b>${escapeHTML(data.name)} Lv ${level}/${data.max}</b>
+        <p>Cost: ${maxed ? "MAX" : data.cost + " points"}</p>
+      </div>
+      <button ${maxed ? "disabled" : ""}>Upgrade</button>
+    `;
+
+    div.querySelector("button").onclick = () => {
+      if (maxed) return;
+      if (save.points < data.cost) {
+        alert("Not enough points.");
+        return;
+      }
+
+      save.points -= data.cost;
+      save.upgrades[id]++;
+      saveGame();
+      refreshUI();
+    };
+
+    box.appendChild(div);
+  });
+}
+
+function startLevel(level) {
+  stopGameLoop();
+  showScreen("game");
+  resizeCanvas();
+
+  game = {
+    level,
+    stats: getStats(),
+    tiles: [],
+    enemies: [],
+    particles: [],
+    camera: { x: 0, y: 0 },
+    idleTimer: CONFIG.idleExplodeTime,
+    complete: false,
+    dead: false,
+    messageTimer: 0,
+    message: "",
+    player: {
+      x: 80, y: 80, w: 28, h: 34,
+      vx: 0, vy: 0,
+      onGround: false,
+      facing: 1,
+      dashCooldown: 0,
+      swordTimer: 0,
+      jumpHeld: false
+    }
+  };
+
+  parseMap(level.map);
+  document.getElementById("levelNameHud").textContent = level.name;
+  startGameLoop();
+}
+
+function parseMap(map) {
+  game.tiles = [];
+  game.enemies = [];
+
+  map.forEach((row, y) => {
+    [...row].forEach((ch, x) => {
+      const tx = x * CONFIG.tile;
+      const ty = y * CONFIG.tile;
+
+      if (ch === "#") game.tiles.push({ x: tx, y: ty, w: CONFIG.tile, h: CONFIG.tile, type: "solid" });
+      if (ch === "X") game.tiles.push({ x: tx, y: ty, w: CONFIG.tile, h: CONFIG.tile, type: "breakable" });
+      if (ch === "^") game.tiles.push({ x: tx, y: ty + 12, w: CONFIG.tile, h: CONFIG.tile - 12, type: "spike" });
+      if (ch === "P") {
+        game.player.x = tx + 6;
+        game.player.y = ty + 2;
+      }
+      if (ch === "G") game.goal = { x: tx, y: ty, w: CONFIG.tile, h: CONFIG.tile };
+      if (ch === "C") {
+        game.enemies.push({ type: "chaser", x: tx + 5, y: ty + 4, w: 30, h: 34, vx: 0, vy: 0, hp: 2, onGround: false });
+      }
+    });
+  });
+}
+
+function loop(now) {
+  if (!gameLoopRunning || !game) return;
+
+  let dt = (now - lastTime) / 1000;
+  lastTime = now;
+
+  // Stops huge speed jumps after tabbing away.
+  dt = Math.min(dt, 1 / 30);
+
+  update(dt);
+  draw();
+
+  animationId = requestAnimationFrame(loop);
+}
+
+function update(dt) {
+  const p = game.player;
+  const inputX = (keys.ArrowRight || keys.KeyD || mobile.right ? 1 : 0) - (keys.ArrowLeft || keys.KeyA || mobile.left ? 1 : 0);
+  const jumpPressed = !!(keys.ArrowUp || keys.KeyW || keys.Space || mobile.jump);
+  const dashing = keys.ShiftLeft || keys.ShiftRight || keys.KeyE || mobile.dash;
+
+  if (!game.dead && !game.complete) {
+    if (inputX !== 0) {
+      p.vx += inputX * game.stats.speed * dt;
+      p.vx = clamp(p.vx, -game.stats.maxRun, game.stats.maxRun);
+      p.facing = inputX;
+      game.idleTimer = CONFIG.idleExplodeTime;
+    } else if (Math.abs(p.vx) < 18 && p.onGround) {
+      game.idleTimer -= dt;
+    } else {
+      game.idleTimer = Math.max(game.idleTimer - dt * 0.2, 0);
+    }
+
+    if (jumpPressed && !p.jumpHeld && p.onGround) {
+      p.vy = -game.stats.jump;
+      p.onGround = false;
+      game.idleTimer = CONFIG.idleExplodeTime;
+    }
+    p.jumpHeld = jumpPressed;
+
+    if (dashing && p.dashCooldown <= 0) {
+      p.vx = p.facing * game.stats.dash;
+      p.dashCooldown = 0.8;
+      burst(p.x + p.w / 2, p.y + p.h / 2, 10);
+      game.idleTimer = CONFIG.idleExplodeTime;
+    }
+
+    if (keys.MouseDown && p.swordTimer <= 0) {
+      swingSword();
+    }
+
+    if (game.idleTimer <= 0) {
+      explodePlayer("You stopped moving.");
+    }
+  }
+
+  p.dashCooldown -= dt;
+  p.swordTimer -= dt;
+
+  p.vy += CONFIG.gravity * dt;
+  p.vx *= p.onGround ? CONFIG.frictionGround : CONFIG.frictionAir;
+
+  moveEntity(p, p.vx * dt, 0);
+  moveEntity(p, 0, p.vy * dt);
+
+  updateEnemies(dt);
+  updateParticles(dt);
+
+  if (!game.dead && game.goal && rectsTouch(p, game.goal)) {
+    completeLevel();
+  }
+
+  game.camera.x = clamp(p.x - canvas.width / 2 + p.w / 2, 0, Math.max(0, getLevelWidth() - canvas.width));
+  game.camera.y = clamp(p.y - canvas.height / 2 + p.h / 2, 0, Math.max(0, getLevelHeight() - canvas.height));
+
+  document.getElementById("idleHud").textContent = Math.max(0, game.idleTimer).toFixed(1);
+  document.getElementById("gamePointsHud").textContent = save.points;
+
+  if (game.messageTimer > 0) game.messageTimer -= dt;
+}
+
+function updateEnemies(dt) {
+  const p = game.player;
+
+  for (const e of game.enemies) {
+    if (e.dead) continue;
+
+    const dir = Math.sign((p.x + p.w / 2) - (e.x + e.w / 2)) || 1;
+    e.vx += dir * 450 * dt;
+    e.vx = clamp(e.vx, -150, 150);
+    e.vy += CONFIG.gravity * dt;
+    e.vx *= e.onGround ? 0.88 : 0.97;
+
+    moveEntity(e, e.vx * dt, 0);
+    moveEntity(e, 0, e.vy * dt);
+
+    if (!game.dead && rectsTouch(p, e)) {
+      explodePlayer("A chaser touched you.");
+    }
+  }
+}
+
+function moveEntity(entity, dx, dy) {
+  entity.x += dx;
+  entity.y += dy;
+
+  if (dy !== 0) entity.onGround = false;
+
+  for (const t of game.tiles) {
+    if (!rectsTouch(entity, t)) continue;
+
+    if (t.type === "spike" && entity === game.player) {
+      explodePlayer("Spikes are rude.");
+      continue;
+    }
+
+    if (t.type !== "solid" && t.type !== "breakable") continue;
+
+    if (dx > 0) {
+      entity.x = t.x - entity.w;
+      entity.vx = 0;
+    }
+    if (dx < 0) {
+      entity.x = t.x + t.w;
+      entity.vx = 0;
+    }
+    if (dy > 0) {
+      entity.y = t.y - entity.h;
+      entity.vy = 0;
+      entity.onGround = true;
+    }
+    if (dy < 0) {
+      entity.y = t.y + t.h;
+      entity.vy = 0;
+    }
+  }
+}
+
+function swingSword() {
+  const p = game.player;
+  p.swordTimer = 0.22;
+  game.idleTimer = CONFIG.idleExplodeTime;
+
+  const reach = 46;
+  const sword = {
+    x: p.facing > 0 ? p.x + p.w : p.x - reach,
+    y: p.y + 4,
+    w: reach,
+    h: p.h
+  };
+
+  for (const e of game.enemies) {
+    if (e.dead) continue;
+    if (rectsTouch(sword, e)) {
+      e.hp -= game.stats.swordDamage;
+      e.vx += p.facing * 260;
+      burst(e.x + e.w / 2, e.y + e.h / 2, 8);
+      if (e.hp <= 0) {
+        e.dead = true;
+        burst(e.x + e.w / 2, e.y + e.h / 2, 18);
+      }
+    }
+  }
+
+  for (let i = game.tiles.length - 1; i >= 0; i--) {
+    const t = game.tiles[i];
+    if (t.type === "breakable" && rectsTouch(sword, t)) {
+      burst(t.x + t.w / 2, t.y + t.h / 2, 12);
+      game.tiles.splice(i, 1);
+    }
+  }
+}
+
+function explodePlayer(reason) {
+  if (game.dead || game.complete) return;
+  game.dead = true;
+  game.message = reason + " Press R to retry.";
+  game.messageTimer = 999;
+  burst(game.player.x + game.player.w / 2, game.player.y + game.player.h / 2, 50);
+}
+
+function completeLevel() {
+  if (game.complete || game.dead) return;
+
+  game.complete = true;
+  const id = game.level.id;
+  if (!save.beaten[id]) {
+    save.beaten[id] = true;
+    save.points += game.level.reward || 2;
+    saveGame();
+  }
+
+  game.message = "Level complete! Press Enter for level select.";
+  game.messageTimer = 999;
+  burst(game.goal.x + game.goal.w / 2, game.goal.y + game.goal.h / 2, 30);
+  refreshUI();
+}
+
+function burst(x, y, amount) {
+  for (let i = 0; i < amount; i++) {
+    game.particles.push({
+      x, y,
+      vx: (Math.random() * 2 - 1) * 260,
+      vy: (Math.random() * 2 - 1) * 260,
+      life: 0.5 + Math.random() * 0.6,
+      size: 3 + Math.random() * 6
+    });
+  }
+}
+
+function updateParticles(dt) {
+  for (const p of game.particles) {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += 600 * dt;
+    p.life -= dt;
+  }
+  game.particles = game.particles.filter(p => p.life > 0);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.translate(-game.camera.x, -game.camera.y);
+
+  drawBackground();
+  drawTiles();
+  drawGoal();
+  drawEnemies();
+  drawPlayer();
+  drawParticles();
+
+  ctx.restore();
+
+  if (game.messageTimer > 0) {
+    ctx.fillStyle = "rgba(0,0,0,0.76)";
+    ctx.fillRect(0, canvas.height / 2 - 55, canvas.width, 110);
+    ctx.strokeStyle = "#fff";
+    ctx.strokeRect(20, canvas.height / 2 - 45, canvas.width - 40, 90);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 30px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(game.message, canvas.width / 2, canvas.height / 2 + 10);
+    ctx.textAlign = "left";
+  }
+}
+
+function drawBackground() {
+  const w = getLevelWidth();
+  const h = getLevelHeight();
+
+  ctx.fillStyle = "#080808";
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.strokeStyle = "#1c1c1c";
+  ctx.lineWidth = 1;
+
+  for (let x = 0; x < w; x += CONFIG.tile) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, h);
+    ctx.stroke();
+  }
+
+  for (let y = 0; y < h; y += CONFIG.tile) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+}
+
+function drawTiles() {
+  for (const t of game.tiles) {
+    if (t.type === "solid") {
+      ctx.fillStyle = "#d8d8d8";
+      ctx.fillRect(t.x, t.y, t.w, t.h);
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 4;
+      ctx.strokeRect(t.x, t.y, t.w, t.h);
+    }
+
+    if (t.type === "breakable") {
+      ctx.fillStyle = "#7d7d7d";
+      ctx.fillRect(t.x, t.y, t.w, t.h);
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(t.x + 3, t.y + 3, t.w - 6, t.h - 6);
+    }
+
+    if (t.type === "spike") {
+      ctx.fillStyle = "#fff";
+      ctx.beginPath();
+      ctx.moveTo(t.x, t.y + t.h);
+      ctx.lineTo(t.x + t.w / 2, t.y);
+      ctx.lineTo(t.x + t.w, t.y + t.h);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "#000";
+      ctx.stroke();
+    }
+  }
+}
+
+function drawGoal() {
+  if (!game.goal) return;
+  const g = game.goal;
+  ctx.fillStyle = "#000";
+  ctx.fillRect(g.x + 8, g.y + 4, 8, g.h);
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(g.x + 16, g.y + 6, 24, 18);
+  ctx.strokeStyle = "#000";
+  ctx.strokeRect(g.x + 16, g.y + 6, 24, 18);
+}
+
+function drawPlayer() {
+  const p = game.player;
+  if (!game.dead) {
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(p.x, p.y, p.w, p.h);
+
+    ctx.fillStyle = "#000";
+    ctx.fillRect(p.x + (p.facing > 0 ? 18 : 6), p.y + 9, 5, 5);
+  }
+
+  if (p.swordTimer > 0) {
+    ctx.fillStyle = "#fff";
+    const reach = 48;
+    const sx = p.facing > 0 ? p.x + p.w : p.x - reach;
+    ctx.fillRect(sx, p.y + 10, reach, 8);
+    ctx.strokeStyle = "#000";
+    ctx.strokeRect(sx, p.y + 10, reach, 8);
+  }
+}
+
+function drawEnemies() {
+  for (const e of game.enemies) {
+    if (e.dead) continue;
+
+    ctx.fillStyle = "#111";
+    ctx.fillRect(e.x, e.y, e.w, e.h);
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(e.x, e.y, e.w, e.h);
+
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(e.x + 7, e.y + 10, 5, 5);
+    ctx.fillRect(e.x + 18, e.y + 10, 5, 5);
+  }
+}
+
+function drawParticles() {
+  for (const p of game.particles) {
+    ctx.fillStyle = p.life > 0.35 ? "#fff" : "#777";
+    ctx.fillRect(p.x, p.y, p.size, p.size);
+  }
+}
+
+function getLevelWidth() {
+  return Math.max(...game.level.map.map(row => row.length)) * CONFIG.tile;
+}
+
+function getLevelHeight() {
+  return game.level.map.length * CONFIG.tile;
+}
+
+function rectsTouch(a, b) {
+  return a.x < b.x + b.w &&
+    a.x + a.w > b.x &&
+    a.y < b.y + b.h &&
+    a.y + a.h > b.y;
+}
+
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function escapeHTML(text) {
+  return String(text).replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;"
+  }[char]));
+}
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+window.addEventListener("resize", resizeCanvas);
+
+window.addEventListener("keydown", event => {
+  keys[event.code] = true;
+
+  if (screens.game.classList.contains("active")) {
+    if (event.code === "KeyR" && game) startLevel(game.level);
+    if (event.code === "Enter" && game?.complete) showScreen(game.level.custom ? "custom" : "levels");
+    if (event.code === "Escape") showScreen("main");
+  }
+});
+
+window.addEventListener("keyup", event => {
+  keys[event.code] = false;
+});
+
+canvas.addEventListener("mousedown", () => {
+  keys.MouseDown = true;
+});
+
+window.addEventListener("mouseup", () => {
+  keys.MouseDown = false;
+});
+
+canvas.addEventListener("touchstart", () => {
+  keys.MouseDown = true;
+}, { passive: true });
+
+canvas.addEventListener("touchend", () => {
+  keys.MouseDown = false;
+}, { passive: true });
+
+document.getElementById("exitGameBtn").onclick = () => showScreen("main");
+
+function bindMobile(id, prop) {
+  const btn = document.getElementById(id);
+  btn.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    mobile[prop] = true;
+  });
+  btn.addEventListener("pointerup", e => {
+    e.preventDefault();
+    mobile[prop] = false;
+  });
+  btn.addEventListener("pointerleave", () => {
+    mobile[prop] = false;
+  });
+  btn.addEventListener("pointercancel", () => {
+    mobile[prop] = false;
+  });
+}
+
+bindMobile("leftBtn", "left");
+bindMobile("rightBtn", "right");
+bindMobile("jumpBtn", "jump");
+bindMobile("dashBtn", "dash");
+
+refreshUI();
+showScreen("start");
