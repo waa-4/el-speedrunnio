@@ -1,28 +1,44 @@
-# El Speedrunnio v1 Fixed
-
-This is the fixed version of the black/grey/white speedrun platformer.
-
-## Main fix
-
-The old version could speed itself up because multiple `requestAnimationFrame` loops could stack when starting/retrying levels.
-
-This version uses:
-
-- `animationId`
-- `startGameLoop()`
-- `stopGameLoop()`
-- `cancelAnimationFrame(animationId)`
-- dt-based movement
-
+# El Speedrunnio v3 - Grid Chaos Update
 ## Controls
-
 - Move: A/D or Arrow Keys
-- Jump: W, Up, or Space
-- Dash: Shift or E
-- Sword: Click / tap game area
+- Jump: W / Up / Space
+- Dash: Q
+- Sword: click or tap game area
 - Retry: R
-- Exit: Escape or Exit button
+- Exit: Escape
 
-## Testing Link (ignore this)
+## New in v3
+- Fully grid-based editor like because.blocks / Jerry Pixel Lab
+- Faster default speed
+- Speedrun timer and fastest run per level
+- Cluttered maze levels
+- Touch boost orb: `B`
+- More enemies: `C` chaser, `L` laser, `N` cannon
+- Breakable blocks: `X`
+- Spikes: `^`
+- Effects, wind FX, screen shake
+- Eye expressions: blink, X dead, O hit/boost, ^ complete, >/< dash/facing
+- Settings toggles for shake, death/break shake, sound, and effects
 
-[README.md](https://github.com/user-attachments/files/28113550/README.md)
+## Playlist Music
+Put music inside the `playlist` folder.
+
+Recommended: edit `playlist/playlist.json`.
+
+Example:
+```json
+[
+  "playlist/track1.mp3",
+  "playlist/track2.mp3"
+]
+```
+
+If playlist.json is empty/missing, the game tries common names:
+- playlist/track1.mp3
+- playlist/track2.mp3
+- playlist/track3.mp3
+- playlist/music.mp3
+- playlist/breakcore.mp3
+- playlist/song.mp3
+
+If it finds nothing, it plays nothing.
