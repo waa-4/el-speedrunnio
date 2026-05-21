@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Move or Explode</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main id="app">
+    <section id="start" class="screen active"><div class="card title"><p>A totally normal platformer</p><h1>MOVE<br>OR<br>EXPLODE</h1><p>Stop moving for 5 seconds and your character explodes.</p><button onclick="show('diff')">Start</button></div></section>
+    <section id="diff" class="screen"><div class="card"><h2>Choose Difficulty</h2><p class="muted">Only one door is real.</p><div class="grid"><button onclick="rick('Baby Mode')">Baby Mode</button><button onclick="rick('Easy')">Easy</button><button onclick="rick('Normal')">Normal</button><button onclick="rick('Hard')">Hard</button><button class="danger wide" onclick="show('menu')">Pure Insane</button></div><button onclick="show('start')">Back</button></div></section>
+    <section id="rick" class="screen"><div class="card"><h2 id="rickTitle">Rickroll.exe</h2><p>You picked a fake difficulty.</p><pre>┌( ͡° ͜ʖ ͡°)┘♪
+NEVER GONNA GIVE YOU UP</pre><button onclick="show('diff')">Return</button></div></section>
+    <section id="menu" class="screen"><div class="card"><h2>Main Menu</h2><p>Points: <b id="pointsA">0</b></p><div class="grid"><button onclick="show('levels')">Play Levels</button><button onclick="show('upgrades')">Upgrades</button><button onclick="show('editor')">Level Creator</button><button onclick="show('custom')">Custom Levels</button><button class="danger wide" onclick="wipeSave()">Wipe Save</button></div></div></section>
+    <section id="levels" class="screen"><div class="card widecard"><h2>Level Selector</h2><div id="levelList"></div><button onclick="show('menu')">Main Menu</button></div></section>
+    <section id="upgrades" class="screen"><div class="card widecard"><h2>Upgrades</h2><p>Points: <b id="pointsB">0</b></p><div id="upgradeList"></div><button onclick="show('menu')">Main Menu</button></div></section>
+    <section id="editor" class="screen"><div class="card widecard"><h2>Level Creator</h2><p class="muted">Map keys: # solid, . empty, P player, G goal, C chaser, X breakable, ^ spike</p><label>Level name<input id="edName" value="Custom Chaos"></label><textarea id="edMap" spellcheck="false"></textarea><div class="row"><button onclick="saveCustom()">Save Custom Level</button><button onclick="exportCustom()">Export Code</button><button onclick="importCustom()">Import Code</button></div><textarea id="shareBox" placeholder="Share code goes here"></textarea><button onclick="show('menu')">Main Menu</button></div></section>
+    <section id="custom" class="screen"><div class="card widecard"><h2>Custom Levels</h2><div id="customList"></div><button onclick="show('menu')">Main Menu</button></div></section>
+    <section id="game" class="screen game"><canvas id="canvas"></canvas><div class="hud"><span id="hudName">Level</span><span>Idle Doom: <b id="idleHud">5.0</b>s</span><span>Points: <b id="pointsC">0</b></span></div><button id="exit" onclick="show('menu')">Exit</button><div class="mobile"><button id="mLeft">◀</button><button id="mJump">▲</button><button id="mRight">▶</button><button id="mDash">DASH</button></div></section>
+  </main>
+  <script src="main.js"></script>
+</body>
+</html>
