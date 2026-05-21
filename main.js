@@ -8,8 +8,8 @@
 
 const CONFIG = {
   tile: 40,
-  gravity: 1900,
-  frictionGround: 0.84,
+  gravity: 500,
+  frictionGround: 0.24,
   frictionAir: 0.96,
   idleExplodeTime: 5,
 
