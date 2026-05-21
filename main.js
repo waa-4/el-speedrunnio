@@ -9,12 +9,12 @@
 const CONFIG = {
   tile: 40,
   gravity: 500,
-  frictionGround: 0.24,
+  frictionGround: 0.54,
   frictionAir: 0.96,
   idleExplodeTime: 5,
 
   playerBase: {
-    speed: 1500,
+    speed: 1000,
     maxRun: 310,
     jump: 860,
     dash: 520,
