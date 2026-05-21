@@ -1037,7 +1037,7 @@ function updateEnemies(dt) {
           life: 1.8
         });
 
-        enemy.cooldown = 1.1;
+        enemy.cooldown = 2.2;
         makeParticles(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2, 8);
       }
     }
