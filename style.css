@@ -27,15 +27,49 @@ input, textarea { width:100%; background:#050505; color:#fff; border:2px solid #
 textarea { min-height:130px; resize:vertical; font-family:Consolas, monospace; }
 .settingsGrid { display:grid; gap:12px; margin:18px 0; }
 .settingsGrid label { border:2px solid #555; background:#141414; border-radius:14px; padding:12px; font-weight:900; }
-.editorShell { display:grid; grid-template-columns:230px 1fr; gap:14px; margin:15px 0; }
+.editorShell {
+  display: grid;
+  grid-template-columns: minmax(180px, 230px) minmax(0, 1fr);
+  gap: 14px;
+  margin: 15px 0;
+  max-width: 100%;
+}
 .palette, .gridSide { background:#111; border:2px solid #555; border-radius:18px; padding:14px; }
 #paletteButtons { display:grid; gap:8px; margin-bottom:18px; }
 .tileButton { display:grid; grid-template-columns:34px 1fr; align-items:center; text-align:left; gap:10px; padding:8px; box-shadow:none; }
 .tileButton.active { background:#fff; color:#000; }
 .swatch { width:30px; height:30px; border:2px solid currentColor; display:grid; place-items:center; font-family:Consolas, monospace; font-weight:900; }
 .buttonStack { display:grid; gap:8px; margin-bottom:12px; }
-.legend { display:grid; gap:6px; color:#ddd; font-size:.9rem; }
-.legend span { background:#222; border-radius:999px; padding:4px 8px; }
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: #ddd;
+  font-size: .9rem;
+  line-height: 1.25;
+  max-width: 100%;
+  overflow: hidden;
+  .palette,
+.gridSide {
+  min-width: 0;
+}
+
+.gridSide {
+  overflow: hidden;
+}
+}
+
+.legend b {
+  width: 100%;
+}
+
+.legend span {
+  display: inline-block;
+  background: #222;
+  border-radius: 999px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
 .editorBar { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:10px; color:#ddd; font-weight:900; }
 .editorGrid { display:grid; gap:2px; background:#000; border:2px solid #777; border-radius:14px; padding:6px; overflow:auto; max-height:58vh; touch-action:none; }
 .cell { width:28px; height:28px; display:grid; place-items:center; user-select:none; cursor:crosshair; font-family:Consolas, monospace; font-size:.9rem; font-weight:900; border:1px solid #333; background:#050505; color:#fff; }
@@ -61,10 +95,48 @@ summary { cursor:pointer; font-weight:900; }
 .mobileControls { display:none; position:fixed; left:10px; right:10px; bottom:10px; grid-template-columns:1fr 1fr 1fr 1.25fr; gap:8px; }
 .mobileControls button { min-height:58px; opacity:.85; }
 @media (max-width:850px), (pointer:coarse) {
-  body { overflow:auto; }
-  .gameScreen { overflow:hidden; }
-  .menuGrid, .item, .editorShell { grid-template-columns:1fr; }
-  .mobileControls { display:grid; }
-  .exitBtn { top:auto; bottom:84px; }
-  .cell { width:24px; height:24px; font-size:.78rem; }
+  body {
+    overflow: auto;
+  }
+
+  .gameScreen {
+    overflow: hidden;
+  }
+
+  .menuGrid,
+  .item,
+  .editorShell {
+    grid-template-columns: 1fr;
+  }
+
+  .palette,
+  .gridSide {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .editorGrid {
+    max-width: 100%;
+    overflow: auto;
+  }
+
+  .mobileControls {
+    display: grid;
+  }
+
+  .exitBtn {
+    top: auto;
+    bottom: 84px;
+  }
+
+  .cell {
+    width: 24px;
+    height: 24px;
+    font-size: .78rem;
+  }
 }
